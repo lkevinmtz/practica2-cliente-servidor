@@ -1,34 +1,56 @@
 import socket
 import threading
 
-def broadcast(cliente, mensaje, h_broadcast):
+def broadcast(mensaje, emisor=None):
     for cliente in clientes:
-            cliente.send(f"{direccion} dice: {mensaje}".encode())
-    h_broadcast.close()
+        if cliente != emisor:
+            try:
+                cliente.send(mensaje.encode())
+            except:
+                clientes.remove(cliente)
 
-
-def recibir_mensaje(cliente, direccion):
+def manejar_cliente(cliente, direccion):
     print(f"{direccion} se ha conectado")
 
-    while True:
-        mensaje = cliente.recv(1024).decode()
-        print(f"{[direccion]} dice: {mensaje}")
-        mensajes.append(mensaje)
+    with lock:
+        for msg in mensajes:
+            cliente.send((msg + "\n").encode())
 
-        if mensaje != mensajes[-1]:
-            h_broadcast = threading.Thread(target=broadcast, args=(cliente, mensaje, h_broadcast))
-            h_broadcast.start()
+    while True:
+        try:
+            mensaje = cliente.recv(1024).decode()
+            if not mensaje:
+                break
+
+            msg_broadcast = f"{direccion} dice: {mensaje}"
+            print(msg_broadcast)
+
+            with lock:
+                mensajes.append(msg_broadcast)
+                if len(mensajes) > 20:
+                    mensajes.pop(0)
+
+            broadcast(msg_broadcast, cliente)
+
+        except:
+            break
+
+    print(f"{direccion} se ha desconectado")
+    clientes.remove(cliente)
+    cliente.close()
+
+clientes = []
+mensajes = []
+lock = threading.Lock()
 
 servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 servidor.bind(("127.0.0.1", 5000))
 servidor.listen()
-print("Servidor esperando conexion")
 
-mensajes = []
-clientes = []
+print("Servidor esperando conexión...")
 
 while True:
     cliente, direccion = servidor.accept()
     clientes.append(cliente)
-    hilo = threading.Thread(target=recibir_mensaje, args=(cliente, direccion), daemon=True)
+    hilo = threading.Thread(target=manejar_cliente, args=(cliente, direccion))
     hilo.start()
