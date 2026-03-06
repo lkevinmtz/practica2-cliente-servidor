@@ -1,64 +1,89 @@
 import socket
 import threading
 
-# Función para reenviar un mensaje recibido de parte de un cliente al resto de clientes
+# Funcion que reenvia los mensajes a los clientes mediante broadcast
 def broadcast(mensaje, emisor=None):
     for cliente in clientes:
-        if cliente != emisor:
-            try:
-                cliente.send(mensaje.encode())
-            except:
-                clientes.remove(cliente)
+        try:
+            cliente.send(mensaje.encode())
+        except:
+            clientes.remove(cliente)
 
-# Recibir clientes nuevos
+# Funcion que representa al cliente como hilo en el servidor
 def manejar_cliente(cliente, direccion):
-    print(f"{direccion} se ha conectado")
 
-    # Enviar mensaje y hacer un salto de línea
+    # Servidor recibe username
+    try:
+        username = cliente.recv(1024).decode()
+    except:
+        cliente.close()
+        return
+    
+    # Username del cliente se almacena como usuario activo
+    usuarios[cliente] = username
+    usuarios_conectados.append(username)
+
+    print(f"{username} se ha conectado desde {direccion}")
+
+    # Envio de los 20 mensajes más recientes
     with lock:
         for msg in mensajes:
             cliente.send((msg + "\n").encode())
 
-    # Loop para recibir mensajes y llamar a la función de broadcast
+    broadcast(f"{username} se ha unido al chat")
+
+    # Bucle principal del cliente en el servidor
     while True:
         try:
+            # Recepcion del mensaje del cliente
             mensaje = cliente.recv(1024).decode()
+
             if not mensaje:
                 break
 
-            msg_broadcast = f"{direccion} dice: {mensaje}"
+            msg_broadcast = f"{username}: {mensaje}"
             print(msg_broadcast)
 
+            # Control de la lista de 20 mensajes más recientes
             with lock:
                 mensajes.append(msg_broadcast)
                 if len(mensajes) > 20:
                     mensajes.pop(0)
 
+            # Llamado de la funcion broadcast
             broadcast(msg_broadcast, cliente)
 
         except:
-            break
+            break # Excepcion para que en caso de desconexion, se controlen los errores generados
 
-    # Manejar desconexión de cliente
-    print(f"{direccion} se ha desconectado")
+    print(f"{username} se ha desconectado")
+    
+    # Eliminacion del hilo cliente y de su entrada de usuario
     clientes.remove(cliente)
+    usuarios_conectados.remove(username)
+    del usuarios[cliente]
+
     cliente.close()
 
-# Creación de Listas y Lock
-clientes = []
-mensajes = []
+clientes = [] # Hilos cliente
+usuarios = {} # Relacion socket/usuario
+usuarios_conectados = [] # Solo nombre de usuario
+mensajes = [] # Mensajes recientes
+
 lock = threading.Lock()
 
-# Creación de Socket y empezar la escucha de clientes
+# Creacion del socket
 servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 servidor.bind(("127.0.0.1", 5000))
 servidor.listen()
 
 print("Servidor esperando conexión...")
 
-# Loop para aceptar clientes y crear hilos para ellos
+# Bucle principal del servidor recibe y maneja los clientes
 while True:
     cliente, direccion = servidor.accept()
+
     clientes.append(cliente)
+
     hilo = threading.Thread(target=manejar_cliente, args=(cliente, direccion))
     hilo.start()
