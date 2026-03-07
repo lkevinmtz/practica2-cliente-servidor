@@ -9,6 +9,7 @@ def broadcast(mensaje, emisor=None):
         except:
             clientes.remove(cliente)
 
+# Función para actualizar la sección de la lista de usuarios cuando sea necesario
 def enviar_lista_usuarios():
     lista = "USERS:" + ",".join(usuarios_conectados)
     for cliente in clientes:
@@ -63,7 +64,7 @@ def manejar_cliente(cliente, direccion):
             broadcast(msg_broadcast, cliente)
 
         except:
-            break # Excepción para que en caso de desconexion, se controlen los errores generados
+            break # Excepción para que en caso de desconexión, se controlen los errores generados
 
     print(f"{username} se ha desconectado")
     
@@ -77,6 +78,7 @@ def manejar_cliente(cliente, direccion):
 
     cliente.close()
 
+# Listas e índices
 clientes = [] # Hilos cliente
 usuarios = {} # Relación socket/usuario
 usuarios_conectados = [] # Solo nombre de usuario
@@ -86,7 +88,7 @@ lock = threading.Lock()
 
 # Creación del socket
 servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-servidor.bind(("0.0.0.0", 5000))
+servidor.bind(("127.0.0.1", 5000))
 servidor.listen()
 
 print("Servidor esperando conexión...")
