@@ -1,7 +1,7 @@
 import socket
 import threading
 
-# Funcion que reenvia los mensajes a los clientes mediante broadcast
+# Función que reenvia los mensajes a los clientes mediante broadcast
 def broadcast(mensaje, emisor=None):
     for cliente in clientes:
         try:
@@ -9,7 +9,15 @@ def broadcast(mensaje, emisor=None):
         except:
             clientes.remove(cliente)
 
-# Funcion que representa al cliente como hilo en el servidor
+def enviar_lista_usuarios():
+    lista = "USERS:" + ",".join(usuarios_conectados)
+    for cliente in clientes:
+        try:
+            cliente.send((lista + "\n").encode())
+        except:
+            pass
+
+# Función que representa al cliente como hilo en el servidor
 def manejar_cliente(cliente, direccion):
 
     # Servidor recibe username
@@ -22,10 +30,11 @@ def manejar_cliente(cliente, direccion):
     # Username del cliente se almacena como usuario activo
     usuarios[cliente] = username
     usuarios_conectados.append(username)
+    enviar_lista_usuarios()
 
     print(f"{username} se ha conectado desde {direccion}")
 
-    # Envio de los 20 mensajes más recientes
+    # Envío de los 20 mensajes más recientes
     with lock:
         for msg in mensajes:
             cliente.send((msg + "\n").encode())
@@ -35,7 +44,7 @@ def manejar_cliente(cliente, direccion):
     # Bucle principal del cliente en el servidor
     while True:
         try:
-            # Recepcion del mensaje del cliente
+            # Recepción del mensaje del cliente
             mensaje = cliente.recv(1024).decode()
 
             if not mensaje:
@@ -50,31 +59,34 @@ def manejar_cliente(cliente, direccion):
                 if len(mensajes) > 20:
                     mensajes.pop(0)
 
-            # Llamado de la funcion broadcast
+            # Llamado de la función broadcast
             broadcast(msg_broadcast, cliente)
 
         except:
-            break # Excepcion para que en caso de desconexion, se controlen los errores generados
+            break # Excepción para que en caso de desconexion, se controlen los errores generados
 
     print(f"{username} se ha desconectado")
     
-    # Eliminacion del hilo cliente y de su entrada de usuario
+    # Eliminación del hilo cliente y de su entrada de usuario
+    broadcast(f"{username} ha salido del chat")
+
     clientes.remove(cliente)
     usuarios_conectados.remove(username)
     del usuarios[cliente]
+    enviar_lista_usuarios()
 
     cliente.close()
 
 clientes = [] # Hilos cliente
-usuarios = {} # Relacion socket/usuario
+usuarios = {} # Relación socket/usuario
 usuarios_conectados = [] # Solo nombre de usuario
 mensajes = [] # Mensajes recientes
 
 lock = threading.Lock()
 
-# Creacion del socket
+# Creación del socket
 servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-servidor.bind(("127.0.0.1", 5000))
+servidor.bind(("0.0.0.0", 5000))
 servidor.listen()
 
 print("Servidor esperando conexión...")
